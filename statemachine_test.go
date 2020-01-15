@@ -12,11 +12,16 @@ import (
 type testByteSliceIterator struct {
 	current int
 	s       []byte
+	err     error
 }
 
-func (it *testByteSliceIterator) Next() interface{} {
+func (it *testByteSliceIterator) Next() (interface{}, error) {
 	defer func() { it.current++ }()
-	return it.s[it.current]
+	if it.err != nil {
+		return nil, it.err
+	}
+
+	return it.s[it.current], nil
 }
 
 func (it *testByteSliceIterator) Done() bool {
@@ -53,6 +58,13 @@ func TestExecute(t *testing.T) {
 		assert.Equal(t, len(content), it.current)
 		assert.Equal(t, content, string(fsm.inputs))
 		assert.Equal(t, len(content), fsm.transitions)
+	})
+
+	t.Run("iterator error caught", func(t *testing.T) {
+		it := &testByteSliceIterator{s: []byte(" "), err: errors.New("iterator error")}
+		fsm := &testSM{}
+		err := Execute(it, fsm)
+		assert.Equal(t, it.err, err)
 	})
 
 	t.Run("fsm error caught", func(t *testing.T) {
